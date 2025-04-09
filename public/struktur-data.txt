@@ -1,0 +1,47 @@
+realtime db
+chats: {
+  roomId1: {
+    messageId1: {
+      senderId: "user123",
+      message: "Hello!",
+      timestamp: 1710000000000
+    },
+    messageId2: { ... }
+  },
+  roomId2: { ... }
+}
+
+userRooms: {
+  user123: {
+    roomId1: {
+      lastMessage: "Hello!",
+      lastTimestamp: 1710000000000,
+      lastSenderId: "user123",
+      firstPersonId: 'user 234',
+      firstPersonName: 'user 234',
+      secondPersonId: 'user 234',
+      secondPersonName: 'user 234',
+    },
+  },
+}
+
+roomMetadata: {
+  roomId1: {
+    lastMessage: "Hello!",
+    lastTimestamp: 1710000000000,
+    lastSenderId: "user123",
+    recipientId: 'user 234',
+  },
+  roomId2: { ... }
+}
+
+
+firestore
+users: {
+  user123: {
+    name: "Fatih",
+    email: "fatih@example.com",
+    avatar: "https://..."
+  },
+  user456: { ... }
+}
