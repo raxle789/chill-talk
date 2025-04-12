@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { SendHorizontal, MessageSquareText, SquarePen, LogOut, CircleX } from 'lucide-vue-next'
+import {
+  SendHorizontal,
+  MessageSquareText,
+  SquarePen,
+  LogOut,
+  CircleX,
+  CheckCheck,
+} from 'lucide-vue-next'
 import {
   signOutUser,
   sendFirstMessage,
@@ -7,20 +14,23 @@ import {
   dbRealtime,
   makeNewRoom,
   markMessageAsRead,
+  addOrChangeUserData,
+  getUserField,
 } from '@/lib/firebase.utils'
 import { useRouter } from 'vue-router'
 import Cookies from 'js-cookie'
-import { watch, ref, onMounted, onBeforeUnmount } from 'vue'
+import { watch, ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { getUserDataFromCookies } from '@/lib/js-cookie.utils'
 import { ref as dbRef, onChildAdded, off, get, onValue } from 'firebase/database'
 import { v4 as uuidv4 } from 'uuid'
 import dayjs from 'dayjs'
+import { useUserStore } from '@/stores/user'
 
 type TMessage = {
   senderId: string
   message: string
   timestamp: number
-  readBy?: {
+  readBy: {
     [userId: string]: boolean
   }
 }
@@ -38,28 +48,102 @@ type TChatList = {
 
 // State
 const router = useRouter()
-const user = ref({
-  uid: '',
-  email: '',
-  displayName: '',
-})
+const user = useUserStore()
+// const user = ref({
+//   uid: '',
+//   email: '',
+//   displayName: '',
+//   avatar: ''
+// })
 const menu = ref('chats')
 const messageInput = ref('')
+const messageInputRef = ref<HTMLInputElement | null>(null)
 const roomId = ref('')
 const recipientId = ref('')
 const recipientName = ref('')
 const chatList = ref<any>([])
+const avatars = ref<any>([])
 const messages = ref<TMessage[]>([])
 const modalRef = ref<HTMLDialogElement | null>(null)
 const loading = ref(false)
 const toastState = ref(false)
+const warningAlert = ref(false)
+const editState = ref(false)
+const formData = ref({
+  displayName: user.displayName,
+  avatar: null as File | null,
+})
 let firebaseRef: any = null
 
 // Functions
+const handleEditSubmit = async () => {
+  loading.value = true
+  try {
+    console.log({
+      displayName: formData.value.displayName,
+      avatar: formData.value.avatar,
+    })
+    if (formData.value.avatar) {
+      const formDataCloudinary = new FormData()
+      formDataCloudinary.append('file', formData.value.avatar)
+      formDataCloudinary.append('upload_preset', 'cloudinary-files')
+      formDataCloudinary.append('cloud_name', 'dmphgf3hg')
+
+      const response = await fetch('https://api.cloudinary.com/v1_1/dmphgf3hg/image/upload', {
+        method: 'POST',
+        body: formDataCloudinary,
+      })
+      const data = await response.json()
+      console.log('res cloudinary: ', data.secure_url)
+
+      // Update user data
+      await addOrChangeUserData(user.uid, {
+        displayName: formData.value.displayName,
+        email: user.email,
+        avatar: data.secure_url,
+      })
+
+      // Update local store
+      user.setUser({
+        ...user,
+        displayName: formData.value.displayName,
+        avatar: data.secure_url,
+      })
+
+      // Toggle edit mode
+      editState.value = false
+    }
+  } catch (error) {
+    console.error('Error updating profile:', error)
+  }
+  loading.value = false
+}
+
+const handleFileChange = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  if (input.files?.length) {
+    const file = input.files[0]
+    // Validasi tipe file
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file')
+      input.value = '' // Reset input
+      return
+    }
+    // Validasi ukuran file (optional, misal max 2MB)
+    if (file.size > 0.3 * 1024 * 1024) {
+      alert('File size should be less than 300kb')
+      input.value = ''
+      return
+    }
+    formData.value.avatar = file
+  }
+}
+
 const handleSignOut = async () => {
   await signOutUser()
   // Remove user data from cookies
   Cookies.remove('simpleChatApp-userData')
+  user.clearUser()
   router.replace('/')
 }
 
@@ -78,8 +162,8 @@ const handleNewChatSubmit = async (e: any) => {
   const message = form.message.value
 
   const roomId = uuidv4()
-  await makeNewRoom(roomId, user.value.uid, user.value.displayName, recipientId, message)
-  await sendFirstMessage(roomId, user.value.uid, message, recipientId)
+  await makeNewRoom(roomId, user.uid, user.displayName, recipientId, message)
+  await sendFirstMessage(roomId, user.uid, message, recipientId)
 
   form.reset()
   modalRef?.value?.close()
@@ -89,19 +173,19 @@ const handleNewChatSubmit = async (e: any) => {
 
 const handleSendMessage = async () => {
   if (messageInput.value.trim()) {
-    await sendMessage(roomId.value, user.value.uid, recipientId.value, messageInput.value)
+    await sendMessage(roomId.value, user.uid, recipientId.value, messageInput.value)
     messageInput.value = ''
   }
 }
 
-const handleRoomClick = (id: string) => {
+const handleRoomClick = async (id: string) => {
   if (id !== roomId.value) {
     if (firebaseRef) off(firebaseRef)
     roomId.value = id
     messages.value = []
     chatList.value.find((chat: TChatList) => {
       if (chat.roomId === id) {
-        if (chat.firstPersonId === user.value.uid) {
+        if (chat.firstPersonId === user.uid) {
           recipientName.value = chat.secondPersonName
           recipientId.value = chat.secondPersonId
         } else {
@@ -112,13 +196,16 @@ const handleRoomClick = (id: string) => {
     })
     getMessages()
     listenToMessages()
+    await nextTick(() => {
+      messageInputRef.value?.focus()
+    })
   }
 }
 
 const getChatList = async () => {
-  const chatListRef = dbRef(dbRealtime, `userRooms/${user.value.uid}`)
+  const chatListRef = dbRef(dbRealtime, `userRooms/${user.uid}`)
   const listSnap = await get(chatListRef)
-  console.log('listSnap: ', listSnap.val())
+  // console.log('listSnap: ', listSnap.val())
   const result = listSnap.val()
   delete result.displayName
 
@@ -126,7 +213,7 @@ const getChatList = async () => {
   Object.values(result as any).map((item: any, index: number) =>
     list.push({ roomId: Object.keys(result)[index], ...item }),
   )
-  console.log('list: ', list)
+  // console.log('list: ', list)
   if (list.length > 0) {
     const result = Object.entries(list)
       .map(([roomId, roomData]: any) => ({
@@ -134,23 +221,43 @@ const getChatList = async () => {
         ...roomData,
       }))
       .sort((a, b) => b.lastTimestamp - a.lastTimestamp)
-    result.forEach((item) => listenToChatRoom(item.roomId))
-
     chatList.value = result
+    let avatarsObj: { [key: string]: { avatar: string } } = {}
+
+    await Promise.all(
+      result.map(async (item) => {
+        listenToChatRoom(item.roomId)
+        let userData = null
+        if (item.firstPersonId === user.uid) {
+          userData = await getUserField(item.secondPersonId)
+        } else {
+          userData = await getUserField(item.firstPersonId)
+        }
+
+        if (userData) {
+          avatarsObj[item.roomId] = {
+            avatar: userData.avatar,
+          }
+        }
+      }),
+    )
+
+    // Set ke state
+    avatars.value = avatarsObj
   } else {
     chatList.value = list
   }
 
-  console.log('chatlist: ', chatList.value)
+  // console.log('chatlist: ', chatList.value)
 }
 
 const listenToChatList = () => {
-  const userRoomsRef = dbRef(dbRealtime, `userRooms/${user.value.uid}`)
+  const userRoomsRef = dbRef(dbRealtime, `userRooms/${user.uid}`)
 
-  onValue(userRoomsRef, (snapshot) => {
+  onValue(userRoomsRef, async (snapshot) => {
     const data = snapshot.val()
     delete data.displayName
-    console.log('data: ', data)
+    // console.log('data: ', data)
     // console.log(data.lastMessage)
     if (data) {
       const result = Object.entries(data)
@@ -159,16 +266,64 @@ const listenToChatList = () => {
           ...roomData,
         }))
         .sort((a, b) => b.lastTimestamp - a.lastTimestamp)
-      console.log('result: ', result)
+      const newItems = result.filter(
+        (newItem) =>
+          !chatList.value.some((existingItem: any) => existingItem.roomId === newItem.roomId),
+      )
       chatList.value = result
+
+      if (newItems.length > 0) {
+        let avatarsObj: { [key: string]: { avatar: string } } = { ...avatars.value }
+        await Promise.all(
+          newItems.map(async (item) => {
+            let userData = null
+            if (item.firstPersonId === user.uid) {
+              userData = await getUserField(item.secondPersonId)
+            } else {
+              userData = await getUserField(item.firstPersonId)
+            }
+
+            if (userData) {
+              avatarsObj[item.roomId] = {
+                avatar: userData.avatar,
+              }
+            }
+          }),
+        )
+
+        // Set ke state
+        avatars.value = avatarsObj
+      }
     } else {
       chatList.value = []
     }
   })
 }
 
+// const listenToChatRoom = (roomId: string) => {
+//   const chatRoomsRef = dbRef(dbRealtime, `userRooms/${user.uid}/${roomId}`)
+
+//   onValue(chatRoomsRef, (snapshot) => {
+//     const newRoomData = snapshot.val()
+//     if (!newRoomData) return
+
+//     // Tambahkan roomId ke dalam data
+//     const newRoom = {
+//       roomId,
+//       ...newRoomData,
+//     }
+
+//     // Hapus entry lama jika ada yang punya roomId sama
+//     const filtered = JSON.parse(JSON.stringify(chatList.value)).filter(
+//       (item: any) => item.roomId !== roomId,
+//     )
+//     // Masukkan data terbaru ke paling depan
+//     chatList.value = [newRoom, ...filtered]
+//   })
+// }
+
 const listenToChatRoom = (roomId: string) => {
-  const chatRoomsRef = dbRef(dbRealtime, `userRooms/${user.value.uid}/${roomId}`)
+  const chatRoomsRef = dbRef(dbRealtime, `userRooms/${user.uid}/${roomId}`)
 
   onValue(chatRoomsRef, (snapshot) => {
     const newRoomData = snapshot.val()
@@ -184,25 +339,51 @@ const listenToChatRoom = (roomId: string) => {
     const filtered = JSON.parse(JSON.stringify(chatList.value)).filter(
       (item: any) => item.roomId !== roomId,
     )
-    // Masukkan data terbaru ke paling depan
-    chatList.value = [newRoom, ...filtered]
+
+    // Gabungkan dan urutkan berdasarkan timestamp
+    const updatedList = [...filtered, newRoom].sort((a, b) => b.lastTimestamp - a.lastTimestamp)
+
+    // Update chatList
+    chatList.value = updatedList
   })
 }
 
 const getMessages = async () => {
   firebaseRef = dbRef(dbRealtime, `chats/${roomId.value}`)
   const result = await get(firebaseRef)
-  // Object.values(result.val() as Record<string, TMessage>).map((item) => messages.value.push(item))
+  // console.log('getMessages:', result.val())
+  const messagesQuery = result.val()
+  const keys = Object.keys(messagesQuery)
+  const lastKey = keys[keys.length - 1]
+  // console.log('Key terbaru:', lastKey)
+
   messages.value = Object.values(result.val() as Record<string, TMessage>)
+  const lengthArray = messages.value.length
+  const lastMessage = messages.value[lengthArray - 1]
+  if (
+    lastMessage?.readBy &&
+    user.uid in lastMessage.readBy &&
+    lastMessage.readBy[user.uid] === false
+  ) {
+    messages.value[lengthArray - 1].readBy[user.uid] = true
+    // console.log(messages.value[lengthArray - 1].readBy[user.uid])
+    await markMessageAsRead(roomId.value, lastKey, user.uid)
+  }
 }
 
 const listenToMessages = () => {
   firebaseRef = dbRef(dbRealtime, `chats/${roomId.value}`)
   onChildAdded(firebaseRef, async (snapshot) => {
     const data = snapshot.val()
+
     if (messages.value.length > 0) {
-      if (messages.value[0].message !== data.message) {
+      const lengthArray = messages.value.length
+      if (messages.value[lengthArray - 1].message !== data.message) {
         messages.value.push(data)
+        if (data.senderId !== user.uid && data.readBy[user.uid] === false) {
+          data.readBy[user.uid] = true
+          await markMessageAsRead(roomId.value, snapshot.key as string, user.uid)
+        }
       }
     }
   })
@@ -217,18 +398,32 @@ watch(
   { deep: true },
 )
 
-watch(
-  chatList,
-  () => {
-    console.log('chatList: ', JSON.parse(JSON.stringify(chatList.value)))
-  },
-  { deep: true },
-)
+// watch(
+//   user,
+//   () => {
+//     console.log('userStore state:', {
+//       avatar: user.avatar,
+//       uid: user.uid,
+//       displayName: user.displayName,
+//       email: user.email,
+//     })
+//   },
+//   { deep: true },
+// )
+
+// watch(
+//   chatList,
+//   () => {
+//     console.log('chatList: ', JSON.parse(JSON.stringify(chatList.value)))
+//   },
+//   { deep: true },
+// )
 
 onMounted(() => {
   const data = getUserDataFromCookies()
   if (data) {
-    user.value = data
+    // user.value = data
+    user.setUser(data)
     getChatList()
     listenToChatList()
   } else {
@@ -252,7 +447,10 @@ onBeforeUnmount(() => {
       class="w-14 bg-white border-r border-gray-300 flex flex-col justify-between items-center pt-6 pb-5"
     >
       <div class="tooltip tooltip-right" data-tip="Chats">
-        <button class="btn btn-ghost btn-circle" @click="changeMenu('chats')">
+        <button
+          :class="['btn btn-ghost btn-circle', menu === 'chats' && 'bg-gray-200']"
+          @click="changeMenu('chats')"
+        >
           <MessageSquareText />
         </button>
       </div>
@@ -260,10 +458,18 @@ onBeforeUnmount(() => {
         <div class="tooltip tooltip-right" data-tip="Profile">
           <button class="btn btn-ghost btn-circle" @click="changeMenu('profile')">
             <img
-              class="rounded-full"
-              alt="Tailwind CSS Navbar component"
-              src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp"
+              v-if="user.avatar.length > 0"
+              :src="user.avatar"
+              class="w-full h-full rounded-full object-cover"
+              alt="avatar-image-profile"
             />
+            <div v-else class="avatar avatar-placeholder w-full h-full rounded-full">
+              <div
+                class="bg-neutral text-neutral-content rounded-full flex items-center justify-center"
+              >
+                <span class="text-2xl">{{ user.displayName.substring(0, 1) }}</span>
+              </div>
+            </div>
           </button>
         </div>
         <div class="tooltip tooltip-right" data-tip="Logout">
@@ -296,11 +502,23 @@ onBeforeUnmount(() => {
             ]"
             @click="handleRoomClick(item.roomId)"
           >
-            <div class="avatar">
+            <div v-if="avatars[item.roomId]?.avatar?.length > 0" class="avatar">
               <div class="w-12 rounded-full">
                 <img
-                  src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp"
+                  :src="avatars[item.roomId].avatar"
+                  class="object-cover"
+                  loading="lazy"
+                  alt="avatar-image-person"
                 />
+              </div>
+            </div>
+            <div v-else class="avatar avatar-placeholder">
+              <div class="bg-neutral text-neutral-content w-12 rounded-full">
+                <span class="text-3xl">{{
+                  item.firstPersonId === user.uid
+                    ? item.secondPersonName.substring(0, 1)
+                    : item.firstPersonName.substring(0, 1)
+                }}</span>
               </div>
             </div>
             <div class="w-full flex items-center justify-between">
@@ -313,10 +531,6 @@ onBeforeUnmount(() => {
                 <p>{{ item.lastMessage }}</p>
               </span>
               <span class="flex item-center">
-                <!-- <span
-                  class="w-4 h-4 bg-red-500 text-white flex items-center justify-center rounded-full"
-                  >1</span
-                > -->
                 <p>{{ dayjs(item.lastTimestamp).format('HH:mm') }}</p>
               </span>
             </div>
@@ -327,6 +541,68 @@ onBeforeUnmount(() => {
           <div class="h-20 w-full flex items-center px-3">
             <h2 class="text-xl font-bold">Profile</h2>
           </div>
+          <div class="px-3 relative">
+            <div v-if="editState === false" class="flex flex-col gap-2">
+              <div>
+                <p class="font-semibold mb-1">Avatar</p>
+                <img
+                  v-if="user?.avatar?.length > 0"
+                  :src="user.avatar"
+                  alt="avatar-image"
+                  loading="lazy"
+                  class="w-22 h-22 rounded-full object-cover"
+                />
+                <div
+                  v-else
+                  class="h-22 w-22 flex items-center justify-center rounded-full border border-gray-200 text-xs"
+                >
+                  No Image
+                </div>
+              </div>
+              <div>
+                <p class="font-semibold">User Id</p>
+                <p>{{ user.uid }}</p>
+              </div>
+              <div>
+                <p class="font-semibold">Name</p>
+                <p>{{ user.displayName }}</p>
+              </div>
+              <div>
+                <p class="font-semibold">Email</p>
+                <p>{{ user.email }}</p>
+              </div>
+            </div>
+            <div v-else>
+              <form @submit.prevent="handleEditSubmit">
+                <div class="mb-2">
+                  <label for="avatar" class="font-semibold block mb-1">Avatar</label>
+                  <input
+                    type="file"
+                    class="file-input"
+                    name="avatar"
+                    @change="handleFileChange"
+                    accept="image/*"
+                  />
+                </div>
+                <div class="mb-4">
+                  <label for="displayName" class="font-semibold">Name</label>
+                  <input
+                    type="text"
+                    placeholder="Type your name"
+                    class="input"
+                    name="displayName"
+                    v-model="formData.displayName"
+                  />
+                </div>
+                <button class="btn btn-primary" type="submit">
+                  <span v-if="loading === true" class="loading loading-spinner"></span> Submit
+                </button>
+              </form>
+            </div>
+            <div class="absolute top-0 right-0">
+              <button class="btn btn-link items-start" @click="editState = !editState">Edit</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -334,11 +610,19 @@ onBeforeUnmount(() => {
         <div class="flex flex-col h-screen" v-if="roomId !== ''">
           <div class="navbar bg-primary shadow-sm flex-none px-4">
             <div class="flex items-center gap-3">
-              <div class="avatar">
+              <div v-if="avatars[roomId]?.avatar?.length > 0" class="avatar">
                 <div class="w-10 rounded-full">
                   <img
-                    src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp"
+                    :src="avatars[roomId].avatar"
+                    class="object-cover"
+                    loading="lazy"
+                    alt="avatar-image-person"
                   />
+                </div>
+              </div>
+              <div v-else class="avatar avatar-placeholder">
+                <div class="bg-neutral text-neutral-content w-10 rounded-full">
+                  <span class="text-3xl">{{ recipientName.substring(0, 1) }}</span>
                 </div>
               </div>
               <p class="text-lg font-semibold text-white">{{ recipientName }}</p>
@@ -357,13 +641,19 @@ onBeforeUnmount(() => {
                     item.senderId === user.uid ? 'chat-bubble-neutral' : 'chat-bubble-secondary',
                   ]"
                 >
-                  <span v-if="item.senderId === user.uid" class="text-xs text-gray-400 mr-2">{{
-                    dayjs(item.timestamp).format('HH:mm')
-                  }}</span>
                   {{ item.message }}
-                  <span v-if="item.senderId !== user.uid" class="text-xs text-gray-400 ml-2">{{
-                    dayjs(item.timestamp).format('HH:mm')
-                  }}</span>
+                  <!-- <span class="text-xs text-gray-400 ml-2 inline-flex items-center gap-1" -->
+                  <span class="text-xs text-gray-400 ml-2"
+                    >{{ dayjs(item.timestamp).format('HH:mm') }}
+                    <!-- <span v-if="item.senderId === user.uid">
+                      <CheckCheck
+                        :class="[
+                          'w-auto h-4 inline',
+                          item.readBy[recipientId] === true ? 'text-[#0069ff]' : 'text-zinc-300',
+                        ]"
+                      />
+                    </span> -->
+                  </span>
                 </div>
               </div>
             </div>
@@ -371,6 +661,7 @@ onBeforeUnmount(() => {
           <div class="flex-none p-3">
             <label class="input w-full">
               <input
+                ref="messageInputRef"
                 type="text"
                 class="grow"
                 v-model="messageInput"
@@ -424,6 +715,25 @@ onBeforeUnmount(() => {
       <div role="alert" class="alert alert-error alert-soft">
         <CircleX />
         <span>No user data found!</span>
+      </div>
+    </div>
+
+    <div v-if="warningAlert === true" class="toast toast-top toast-center">
+      <div role="alert" class="alert alert-warning">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-6 w-6 shrink-0 stroke-current"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+          />
+        </svg>
+        <span>Warning: File size should be less than 300kb!</span>
       </div>
     </div>
   </main>

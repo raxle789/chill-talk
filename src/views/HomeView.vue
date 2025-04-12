@@ -9,6 +9,7 @@ export type TUserData = {
   uid: string
   email: string | null
   displayName: string | null
+  avatar: string
 }
 const router = useRouter()
 
@@ -23,6 +24,7 @@ const handleLogInWithGoogle = async () => {
           uid: data.uid,
           email: data.email,
           displayName: userData.displayName,
+          avatar: userData.avatar,
         }
 
         // Simpan data pengguna ke dalam cookie
@@ -30,6 +32,9 @@ const handleLogInWithGoogle = async () => {
           expires: 3,
         })
         router.push('/chats')
+      } else {
+        alert('Kamu sebelumnya belum login')
+        console.log(userData)
       }
     }
   } catch (error) {
@@ -46,6 +51,7 @@ const handleSignInWithGoogle = async () => {
         uid: data.uid,
         email: data.email,
         displayName: data.displayName,
+        avatar: '',
       }
       const userSigned = {
         displayName: data.displayName,

@@ -120,7 +120,7 @@ export const sendMessage = async (
     senderId,
     message: messageText,
     timestamp: timestamp,
-    readBy: { [recipientId]: false },
+    readBy: { [senderId]: true, [recipientId]: false },
   })
 
   const metadataRef = ref(dbRealtime, `userRooms/${senderId}/${roomId}`)
@@ -145,44 +145,3 @@ export const markMessageAsRead = async (roomId: string, messageId: string, userI
   const readRef = ref(dbRealtime, `chats/${roomId}/${messageId}/readBy/${userId}`)
   await set(readRef, true)
 }
-
-// export const makeRoomMetadata = async (
-//   roomId: string,
-//   senderId: string,
-//   firstPersonName: string,
-//   recipientId: string,
-//   messageText: string,
-// ) => {
-//   const metadataRef = ref(dbRealtime, `roomMetadata/${roomId}`)
-//   const userData = await getUserField(recipientId)
-//   if (userData) {
-//     await set(metadataRef, {
-//       lastMessage: messageText,
-//       lastTimestamp: Date.now(),
-//       lastSenderId: senderId,
-//       firstPersonId: senderId,
-//       firstPersonName: firstPersonName,
-//       secondPersonId: recipientId,
-//       secondPersonName: userData.displayName,
-//     })
-//   }
-// }
-
-// export const editRoomMetadata = async (roomId: string, userId: string, messageText: string) => {
-//   // await update(ref(dbRealtime, `userRooms/${userId}/${roomId}`), {
-//   //   lastMessage: null,
-//   //   lastSenderId: null,
-//   //   lastTimestamp: null,
-//   // })
-//   // await update(ref(dbRealtime, `userRooms/${userId}/${roomId}`), {
-//   //   lastMessage: messageText,
-//   //   lastSenderId: userId,
-//   //   lastTimestamp: Date.now(),
-//   // })
-//   await remove(ref(dbRealtime, `userRooms/${userId}/${roomId}/lastMessage`))
-//   await set(ref(dbRealtime, `userRooms/${userId}/${roomId}`), {
-//     lastMessage: messageText,
-//     // lastSenderId: userId,
-//     // lastTimestamp: Date.now(),
-//   })
-// }
