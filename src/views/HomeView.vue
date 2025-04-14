@@ -4,6 +4,15 @@ import { useRouter } from 'vue-router'
 import Cookies from 'js-cookie'
 import { onMounted } from 'vue'
 import { getUserDataFromCookies } from '@/lib/js-cookie.utils'
+import people1 from '@/assets/potrait-images/people1.jpg'
+import people2 from '@/assets/potrait-images/people2.jpg'
+import people3 from '@/assets/potrait-images/people3.jpg'
+import people4 from '@/assets/potrait-images/people4.jpg'
+import people5 from '@/assets/potrait-images/people5.jpg'
+import people6 from '@/assets/potrait-images/people6.jpg'
+import arabian from '@/assets/potrait-images/arabian.jpg'
+import korean from '@/assets/potrait-images/korean2.png'
+import african from '@/assets/potrait-images/african.png'
 
 export type TUserData = {
   uid: string
@@ -33,7 +42,7 @@ const handleLogInWithGoogle = async () => {
         })
         router.push('/chats')
       } else {
-        alert('Kamu sebelumnya belum login')
+        alert('You need to signup first!')
         console.log(userData)
       }
     }
@@ -80,10 +89,15 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="w-dvw h-dvh flex items-center justify-center">
+  <main class="w-dvw h-dvh flex items-center justify-around flex-wrap">
+    <div>
+      <h1 class="text-4xl font-bold">
+        Chill <span class="bg-blue-500 text-white px-3 pt-[2px] pb-[6px] rounded-xl">Talk</span>
+      </h1>
+    </div>
     <div class="card w-96 bg-base-100 shadow-sm">
       <div class="card-body">
-        <h2 class="text-3xl font-bold">Log in</h2>
+        <h2 class="text-3xl font-bold">Login</h2>
         <div class="mt-5">
           <button
             class="btn btn-block bg-white text-black border-[#e5e5e5]"
@@ -142,6 +156,110 @@ onMounted(() => {
             </svg>
             Signup with Google
           </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-1 absolute top-25 left-15">
+      <div class="avatar">
+        <div class="w-12 rounded-full">
+          <img class="object-cover" :src="people5" loading="lazy" />
+        </div>
+      </div>
+      <div>
+        <div class="chat chat-start">
+          <div class="chat-bubble chat-bubble-secondary"><span class="mr-2">Hello</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="absolute top-40 left-90">
+      <div class="avatar">
+        <div class="w-12 rounded-full">
+          <img class="object-cover" :src="people6" loading="lazy" />
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-1 absolute top-15 -translate-x-1/2 left-1/2">
+      <div class="avatar">
+        <div class="w-12 rounded-full">
+          <img class="object-cover" :src="people3" loading="lazy" />
+        </div>
+      </div>
+      <div>
+        <div class="chat chat-start">
+          <div class="chat-bubble"><span class="mr-2">Bonjour</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="absolute top-30 right-90">
+      <div class="avatar">
+        <div class="w-12 rounded-full">
+          <img class="object-cover object-center" :src="people2" loading="lazy" />
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-1 absolute top-21 right-20">
+      <div>
+        <div class="chat chat-end">
+          <div class="chat-bubble chat-bubble-accent">
+            <span class="mr-2 text-[#e8eff8]">مرحبا</span>
+          </div>
+        </div>
+      </div>
+      <div class="avatar">
+        <div class="w-12 rounded-full">
+          <img class="object-cover" :src="arabian" loading="lazy" />
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-1 absolute bottom-30 left-35">
+      <div class="avatar">
+        <div class="w-12 rounded-full">
+          <img class="object-cover" :src="african" loading="lazy" />
+        </div>
+      </div>
+      <div>
+        <div class="chat chat-start">
+          <div class="chat-bubble chat-bubble-neutral"><span class="mr-2">Hujambo</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="absolute bottom-10 left-120">
+      <div class="avatar">
+        <div class="w-12 rounded-full">
+          <img class="object-cover" :src="people1" loading="lazy" />
+        </div>
+      </div>
+    </div>
+    <!-- <div class="absolute bottom-20">
+      <div class="avatar">
+        <div class="w-12 rounded-full">
+          <img
+            class="object-cover"
+            src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp"
+            loading="lazy"
+          />
+        </div>
+      </div>
+    </div> -->
+    <div class="flex items-center gap-1 absolute bottom-20 right-90">
+      <div>
+        <div class="chat chat-end">
+          <div class="chat-bubble chat-bubble-primary">
+            <span class="mr-2 whitespace-nowrap">안녕하세요</span>
+          </div>
+        </div>
+      </div>
+      <div class="avatar">
+        <div class="w-12 rounded-full">
+          <img class="object-cover" :src="korean" loading="lazy" />
+        </div>
+      </div>
+    </div>
+    <div class="absolute bottom-10 right-40">
+      <div class="avatar">
+        <div class="w-12 rounded-full">
+          <img class="object-cover" :src="people4" loading="lazy" />
         </div>
       </div>
     </div>

@@ -5,7 +5,7 @@ import {
   SquarePen,
   LogOut,
   CircleX,
-  CheckCheck,
+  // CheckCheck,
 } from 'lucide-vue-next'
 import {
   signOutUser,
@@ -49,12 +49,6 @@ type TChatList = {
 // State
 const router = useRouter()
 const user = useUserStore()
-// const user = ref({
-//   uid: '',
-//   email: '',
-//   displayName: '',
-//   avatar: ''
-// })
 const menu = ref('chats')
 const messageInput = ref('')
 const messageInputRef = ref<HTMLInputElement | null>(null)
@@ -300,28 +294,6 @@ const listenToChatList = () => {
   })
 }
 
-// const listenToChatRoom = (roomId: string) => {
-//   const chatRoomsRef = dbRef(dbRealtime, `userRooms/${user.uid}/${roomId}`)
-
-//   onValue(chatRoomsRef, (snapshot) => {
-//     const newRoomData = snapshot.val()
-//     if (!newRoomData) return
-
-//     // Tambahkan roomId ke dalam data
-//     const newRoom = {
-//       roomId,
-//       ...newRoomData,
-//     }
-
-//     // Hapus entry lama jika ada yang punya roomId sama
-//     const filtered = JSON.parse(JSON.stringify(chatList.value)).filter(
-//       (item: any) => item.roomId !== roomId,
-//     )
-//     // Masukkan data terbaru ke paling depan
-//     chatList.value = [newRoom, ...filtered]
-//   })
-// }
-
 const listenToChatRoom = (roomId: string) => {
   const chatRoomsRef = dbRef(dbRealtime, `userRooms/${user.uid}/${roomId}`)
 
@@ -424,6 +396,7 @@ onMounted(() => {
   if (data) {
     // user.value = data
     user.setUser(data)
+    formData.value = { displayName: data.displayName, avatar: null }
     getChatList()
     listenToChatList()
   } else {
@@ -442,10 +415,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="flex h-screen">
-    <section
-      class="w-14 bg-white border-r border-gray-300 flex flex-col justify-between items-center pt-6 pb-5"
-    >
+  <main class="flex h-screen bg-slate-100">
+    <section class="w-16 flex flex-col justify-between items-center pt-6 pb-5">
       <div class="tooltip tooltip-right" data-tip="Chats">
         <button
           :class="['btn btn-ghost btn-circle', menu === 'chats' && 'bg-gray-200']"
@@ -481,98 +452,108 @@ onBeforeUnmount(() => {
     </section>
 
     <section class="w-full grid grid-cols-7">
-      <div class="border-r border-gray-300 col-span-2 bg-white">
+      <div class="col-span-2 bg-white rounded-s-4xl shadow-md">
         <div v-if="menu === 'chats'">
           <div class="h-20 w-full flex justify-between items-center px-3">
-            <h2 class="text-xl font-bold">Chats</h2>
+            <h2 class="text-xl font-bold ml-2">Chats</h2>
             <div class="tooltip tooltip-bottom" data-tip="New Chat">
               <button class="btn btn-ghost btn-circle" @click="modalRef?.showModal()">
                 <SquarePen />
               </button>
             </div>
           </div>
-          <div
-            v-for="(item, index) in chatList"
-            :key="index"
-            :class="[
-              'w-full flex items-center gap-4 border-b border-gray-300 px-3 py-4 hover:cursor-pointer',
-              roomId === item.roomId
-                ? 'bg-gray-200 hover:bg-gray-200'
-                : 'bg-white hover:bg-gray-100',
-            ]"
-            @click="handleRoomClick(item.roomId)"
-          >
-            <div v-if="avatars[item.roomId]?.avatar?.length > 0" class="avatar">
-              <div class="w-12 rounded-full">
-                <img
-                  :src="avatars[item.roomId].avatar"
-                  class="object-cover"
-                  loading="lazy"
-                  alt="avatar-image-person"
-                />
+          <div class="flex flex-col gap-1 px-3">
+            <div
+              v-for="(item, index) in chatList"
+              :key="index"
+              :class="[
+                'w-full hover:cursor-pointer flex items-center gap-2 px-3 py-4 rounded-xl',
+                roomId === item.roomId
+                  ? 'bg-gray-200 hover:bg-gray-200'
+                  : 'bg-white hover:bg-gray-100',
+              ]"
+              @click="handleRoomClick(item.roomId)"
+            >
+              <div v-if="avatars[item.roomId]?.avatar?.length > 0" class="avatar">
+                <div class="w-12 rounded-full">
+                  <img
+                    :src="avatars[item.roomId].avatar"
+                    class="object-cover"
+                    loading="lazy"
+                    alt="avatar-image-person"
+                  />
+                </div>
               </div>
-            </div>
-            <div v-else class="avatar avatar-placeholder">
-              <div class="bg-neutral text-neutral-content w-12 rounded-full">
-                <span class="text-3xl">{{
-                  item.firstPersonId === user.uid
-                    ? item.secondPersonName.substring(0, 1)
-                    : item.firstPersonName.substring(0, 1)
-                }}</span>
+              <div v-else class="avatar avatar-placeholder">
+                <div class="bg-neutral text-neutral-content w-12 rounded-full">
+                  <span class="text-3xl">{{
+                    item.firstPersonId === user.uid
+                      ? item.secondPersonName.substring(0, 1)
+                      : item.firstPersonName.substring(0, 1)
+                  }}</span>
+                </div>
               </div>
-            </div>
-            <div class="w-full flex items-center justify-between">
-              <span>
-                <p class="font-semibold">
-                  {{
-                    item.firstPersonId === user.uid ? item.secondPersonName : item.firstPersonName
-                  }}
-                </p>
-                <p>{{ item.lastMessage }}</p>
-              </span>
-              <span class="flex item-center">
-                <p>{{ dayjs(item.lastTimestamp).format('HH:mm') }}</p>
-              </span>
+
+              <div class="w-full grid grid-cols-5">
+                <span class="col-span-4 overflow-hidden">
+                  <p class="font-semibold truncate">
+                    {{
+                      item.firstPersonId === user.uid ? item.secondPersonName : item.firstPersonName
+                    }}
+                  </p>
+                  <p class="truncate text-sm">
+                    {{ item.lastMessage }}
+                  </p>
+                </span>
+
+                <span class="flex items-center justify-end">
+                  <p class="text-xs text-gray-500">
+                    {{ dayjs(item.lastTimestamp).format('HH:mm') }}
+                  </p>
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
         <div v-else>
-          <div class="h-20 w-full flex items-center px-3">
+          <div class="h-20 w-full flex items-center px-5">
             <h2 class="text-xl font-bold">Profile</h2>
           </div>
-          <div class="px-3 relative">
-            <div v-if="editState === false" class="flex flex-col gap-2">
-              <div>
-                <p class="font-semibold mb-1">Avatar</p>
-                <img
-                  v-if="user?.avatar?.length > 0"
-                  :src="user.avatar"
-                  alt="avatar-image"
-                  loading="lazy"
-                  class="w-22 h-22 rounded-full object-cover"
-                />
-                <div
-                  v-else
-                  class="h-22 w-22 flex items-center justify-center rounded-full border border-gray-200 text-xs"
-                >
-                  No Image
+          <div class="px-5 relative">
+            <div v-if="editState === false" class="border border-gray-200 rounded-xl p-4">
+              <div class="flex flex-col gap-2">
+                <div>
+                  <p class="font-semibold mb-1">Avatar</p>
+                  <img
+                    v-if="user?.avatar?.length > 0"
+                    :src="user.avatar"
+                    alt="avatar-image"
+                    loading="lazy"
+                    class="w-22 h-22 rounded-full object-cover"
+                  />
+                  <div
+                    v-else
+                    class="h-22 w-22 flex items-center justify-center rounded-full border border-gray-200 text-xs"
+                  >
+                    No Image
+                  </div>
+                </div>
+                <div>
+                  <p class="font-semibold">User Id</p>
+                  <p>{{ user.uid }}</p>
+                </div>
+                <div>
+                  <p class="font-semibold">Name</p>
+                  <p>{{ user.displayName }}</p>
+                </div>
+                <div>
+                  <p class="font-semibold">Email</p>
+                  <p>{{ user.email }}</p>
                 </div>
               </div>
-              <div>
-                <p class="font-semibold">User Id</p>
-                <p>{{ user.uid }}</p>
-              </div>
-              <div>
-                <p class="font-semibold">Name</p>
-                <p>{{ user.displayName }}</p>
-              </div>
-              <div>
-                <p class="font-semibold">Email</p>
-                <p>{{ user.email }}</p>
-              </div>
             </div>
-            <div v-else>
+            <div v-else class="border border-gray-200 rounded-xl p-4">
               <form @submit.prevent="handleEditSubmit">
                 <div class="mb-2">
                   <label for="avatar" class="font-semibold block mb-1">Avatar</label>
@@ -599,15 +580,18 @@ onBeforeUnmount(() => {
                 </button>
               </form>
             </div>
-            <div class="absolute top-0 right-0">
-              <button class="btn btn-link items-start" @click="editState = !editState">Edit</button>
+            <div class="absolute top-4 right-9">
+              <a class="link link-hover items-start font-semibold" @click="editState = !editState"
+                >Edit</a
+              >
             </div>
           </div>
         </div>
       </div>
 
-      <div class="col-span-5">
-        <div class="flex flex-col h-screen" v-if="roomId !== ''">
+      <div class="col-span-5 bg-slate-100">
+        <!-- <div class=" "> -->
+        <div v-if="roomId !== ''" class="flex flex-col h-screen">
           <div class="navbar bg-primary shadow-sm flex-none px-4">
             <div class="flex items-center gap-3">
               <div v-if="avatars[roomId]?.avatar?.length > 0" class="avatar">
@@ -646,13 +630,13 @@ onBeforeUnmount(() => {
                   <span class="text-xs text-gray-400 ml-2"
                     >{{ dayjs(item.timestamp).format('HH:mm') }}
                     <!-- <span v-if="item.senderId === user.uid">
-                      <CheckCheck
-                        :class="[
-                          'w-auto h-4 inline',
-                          item.readBy[recipientId] === true ? 'text-[#0069ff]' : 'text-zinc-300',
-                        ]"
-                      />
-                    </span> -->
+                        <CheckCheck
+                          :class="[
+                            'w-auto h-4 inline',
+                            item.readBy[recipientId] === true ? 'text-[#0069ff]' : 'text-zinc-300',
+                          ]"
+                        />
+                      </span> -->
                   </span>
                 </div>
               </div>
@@ -673,9 +657,10 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="h-screen flex items-center justify-center" v-else>
+        <div v-else class="h-screen flex items-center justify-center">
           <p class="text-lg font-bold">Chat Section</p>
         </div>
+        <!-- </div> -->
       </div>
     </section>
 
