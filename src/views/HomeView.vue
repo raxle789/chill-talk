@@ -260,7 +260,7 @@ onMounted(() => {
     </div>
 
     <!-- <div class="absolute top-30"> -->
-    <div class="items-center gap-1 absolute top-40 left-15 flex md:hidden">
+    <div class="items-center gap-1 absolute top-45 left-15 flex md:hidden">
       <div class="avatar">
         <div class="w-12 rounded-full">
           <img class="object-cover" :src="people5" loading="lazy" />
@@ -272,7 +272,7 @@ onMounted(() => {
         </div>
       </div>
     </div>
-    <div class="items-center gap-1 absolute top-50 right-15 flex md:hidden">
+    <div class="items-center gap-1 absolute top-55 right-15 flex md:hidden">
       <div>
         <div class="chat chat-end">
           <div class="chat-bubble"><span class="mr-2">Bonjour</span></div>

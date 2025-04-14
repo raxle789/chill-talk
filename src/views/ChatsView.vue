@@ -630,7 +630,7 @@ onBeforeUnmount(() => {
           </div>
 
           <button
-            class="btn btn-primary btn-circle w-[50px] h-[50px] absolute bottom-7 right-7 shadow-md lg:hidden"
+            class="btn btn-primary btn-circle w-[50px] h-[50px] fixed bottom-7 right-7 shadow-md lg:hidden"
             @click="modalRef?.showModal()"
           >
             <MessageSquarePlus class="w-7 h-7" />
