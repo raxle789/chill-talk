@@ -43,7 +43,7 @@ const handleLogInWithGoogle = async () => {
         router.push('/chats')
       } else {
         alert('You need to signup first!')
-        console.log(userData)
+        // console.log(userData)
       }
     }
   } catch (error) {
@@ -89,11 +89,17 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="w-dvw h-dvh flex items-center justify-around flex-wrap">
-    <div>
-      <h1 class="text-4xl font-bold">
-        Chill <span class="bg-blue-500 text-white px-3 pt-[2px] pb-[6px] rounded-xl">Talk</span>
-      </h1>
+  <main class="w-dvw h-dvh flex items-center justify-around flex-wrap px-5 md:px-0">
+    <div class="flex items-center">
+      <div class="text-4xl font-bold">
+        Chill
+        <!-- Chill <span class="bg-blue-500 text-white px-3 pt-[2px] pb-[6px] rounded-xl">Talk</span> -->
+      </div>
+      <div class="chat chat-start">
+        <div class="chat-bubble chat-bubble-primary">
+          <span class="mr-2 text-4xl font-bold text-white">Talk</span>
+        </div>
+      </div>
     </div>
     <div class="card w-96 bg-base-100 shadow-sm">
       <div class="card-body">
@@ -160,7 +166,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <div class="flex items-center gap-1 absolute top-25 left-15">
+    <div class="items-center gap-1 absolute top-25 left-15 hidden md:flex">
       <div class="avatar">
         <div class="w-12 rounded-full">
           <img class="object-cover" :src="people5" loading="lazy" />
@@ -172,14 +178,14 @@ onMounted(() => {
         </div>
       </div>
     </div>
-    <div class="absolute top-40 left-90">
+    <div class="absolute top-40 left-90 hidden lg:block">
       <div class="avatar">
         <div class="w-12 rounded-full">
           <img class="object-cover" :src="people6" loading="lazy" />
         </div>
       </div>
     </div>
-    <div class="flex items-center gap-1 absolute top-15 -translate-x-1/2 left-1/2">
+    <div class="items-center gap-1 absolute top-15 -translate-x-1/2 left-1/2 hidden md:flex">
       <div class="avatar">
         <div class="w-12 rounded-full">
           <img class="object-cover" :src="people3" loading="lazy" />
@@ -191,14 +197,14 @@ onMounted(() => {
         </div>
       </div>
     </div>
-    <div class="absolute top-30 right-90">
+    <div class="absolute top-30 right-90 hidden lg:block">
       <div class="avatar">
         <div class="w-12 rounded-full">
           <img class="object-cover object-center" :src="people2" loading="lazy" />
         </div>
       </div>
     </div>
-    <div class="flex items-center gap-1 absolute top-21 right-20">
+    <div class="items-center gap-1 absolute top-21 right-20 hidden md:flex">
       <div>
         <div class="chat chat-end">
           <div class="chat-bubble chat-bubble-accent">
@@ -212,7 +218,7 @@ onMounted(() => {
         </div>
       </div>
     </div>
-    <div class="flex items-center gap-1 absolute bottom-30 left-35">
+    <div class="items-center gap-1 absolute bottom-30 left-35 hidden md:flex">
       <div class="avatar">
         <div class="w-12 rounded-full">
           <img class="object-cover" :src="african" loading="lazy" />
@@ -224,25 +230,14 @@ onMounted(() => {
         </div>
       </div>
     </div>
-    <div class="absolute bottom-10 left-120">
+    <div class="absolute bottom-10 left-120 hidden xl:block">
       <div class="avatar">
         <div class="w-12 rounded-full">
           <img class="object-cover" :src="people1" loading="lazy" />
         </div>
       </div>
     </div>
-    <!-- <div class="absolute bottom-20">
-      <div class="avatar">
-        <div class="w-12 rounded-full">
-          <img
-            class="object-cover"
-            src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp"
-            loading="lazy"
-          />
-        </div>
-      </div>
-    </div> -->
-    <div class="flex items-center gap-1 absolute bottom-20 right-90">
+    <div class="items-center gap-1 absolute bottom-20 right-90 hidden md:flex">
       <div>
         <div class="chat chat-end">
           <div class="chat-bubble chat-bubble-primary">
@@ -256,12 +251,39 @@ onMounted(() => {
         </div>
       </div>
     </div>
-    <div class="absolute bottom-10 right-40">
+    <div class="absolute bottom-10 right-40 hidden md:block">
       <div class="avatar">
         <div class="w-12 rounded-full">
           <img class="object-cover" :src="people4" loading="lazy" />
         </div>
       </div>
     </div>
+
+    <!-- <div class="absolute top-30"> -->
+    <div class="items-center gap-1 absolute top-40 left-15 flex md:hidden">
+      <div class="avatar">
+        <div class="w-12 rounded-full">
+          <img class="object-cover" :src="people5" loading="lazy" />
+        </div>
+      </div>
+      <div>
+        <div class="chat chat-start">
+          <div class="chat-bubble chat-bubble-secondary"><span class="mr-2">Hello</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="items-center gap-1 absolute top-50 right-15 flex md:hidden">
+      <div>
+        <div class="chat chat-end">
+          <div class="chat-bubble"><span class="mr-2">Bonjour</span></div>
+        </div>
+      </div>
+      <div class="avatar">
+        <div class="w-12 rounded-full">
+          <img class="object-cover" :src="people3" loading="lazy" />
+        </div>
+      </div>
+    </div>
+    <!-- </div> -->
   </main>
 </template>

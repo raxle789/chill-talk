@@ -5,6 +5,9 @@ import {
   SquarePen,
   LogOut,
   CircleX,
+  MessageSquarePlus,
+  ArrowLeft,
+  AlignJustify,
   // CheckCheck,
 } from 'lucide-vue-next'
 import {
@@ -19,7 +22,7 @@ import {
 } from '@/lib/firebase.utils'
 import { useRouter } from 'vue-router'
 import Cookies from 'js-cookie'
-import { watch, ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { getUserDataFromCookies } from '@/lib/js-cookie.utils'
 import { ref as dbRef, onChildAdded, off, get, onValue } from 'firebase/database'
 import { v4 as uuidv4 } from 'uuid'
@@ -67,16 +70,17 @@ const formData = ref({
   displayName: user.displayName,
   avatar: null as File | null,
 })
+const widthDevice = ref(0)
 let firebaseRef: any = null
 
 // Functions
 const handleEditSubmit = async () => {
   loading.value = true
   try {
-    console.log({
-      displayName: formData.value.displayName,
-      avatar: formData.value.avatar,
-    })
+    // console.log({
+    //   displayName: formData.value.displayName,
+    //   avatar: formData.value.avatar,
+    // })
     if (formData.value.avatar) {
       const formDataCloudinary = new FormData()
       formDataCloudinary.append('file', formData.value.avatar)
@@ -88,7 +92,7 @@ const handleEditSubmit = async () => {
         body: formDataCloudinary,
       })
       const data = await response.json()
-      console.log('res cloudinary: ', data.secure_url)
+      // console.log('res cloudinary: ', data.secure_url)
 
       // Update user data
       await addOrChangeUserData(user.uid, {
@@ -190,9 +194,11 @@ const handleRoomClick = async (id: string) => {
     })
     getMessages()
     listenToMessages()
-    await nextTick(() => {
-      messageInputRef.value?.focus()
-    })
+    if (widthDevice.value > 767) {
+      await nextTick(() => {
+        messageInputRef.value?.focus()
+      })
+    }
   }
 }
 
@@ -362,13 +368,13 @@ const listenToMessages = () => {
 }
 
 // Hooks
-watch(
-  messages,
-  () => {
-    console.log('messages: ', messages.value)
-  },
-  { deep: true },
-)
+// watch(
+//   messages,
+//   () => {
+//     console.log('messages: ', messages.value)
+//   },
+//   { deep: true },
+// )
 
 // watch(
 //   user,
@@ -399,6 +405,7 @@ onMounted(() => {
     formData.value = { displayName: data.displayName, avatar: null }
     getChatList()
     listenToChatList()
+    widthDevice.value = window.innerWidth
   } else {
     toastState.value = true
     setTimeout(() => {
@@ -415,8 +422,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="flex h-screen bg-slate-100">
-    <section class="w-16 flex flex-col justify-between items-center pt-6 pb-5">
+  <main class="flex h-screen bg-slate-100 overflow-hidden">
+    <section class="hidden w-16 lg:flex flex-col justify-between items-center pt-6 pb-5">
       <div class="tooltip tooltip-right" data-tip="Chats">
         <button
           :class="['btn btn-ghost btn-circle', menu === 'chats' && 'bg-gray-200']"
@@ -451,13 +458,120 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section class="w-full grid grid-cols-7">
-      <div class="col-span-2 bg-white rounded-s-4xl shadow-md">
+    <section class="w-full grid grid-cols-1 md:grid-cols-8 lg:grid-cols-7">
+      <div
+        :class="[
+          'md:col-span-3 lg:col-span-2 bg-white lg:rounded-s-4xl lg:shadow-md relative h-screen transition-transform duration-300',
+          roomId && 'md:translate-x-0 -translate-x-full',
+        ]"
+      >
         <div v-if="menu === 'chats'">
           <div class="h-20 w-full flex justify-between items-center px-3">
-            <h2 class="text-xl font-bold ml-2">Chats</h2>
-            <div class="tooltip tooltip-bottom" data-tip="New Chat">
-              <button class="btn btn-ghost btn-circle" @click="modalRef?.showModal()">
+            <div>
+              <h2 class="text-xl font-bold ml-2 hidden lg:block">Chats</h2>
+              <div class="drawer lg:hidden">
+                <input id="my-drawer" type="checkbox" class="drawer-toggle" />
+                <!-- Drawer content -->
+                <div class="drawer-content">
+                  <!-- Page content here -->
+                  <div class="flex items-center">
+                    <label for="my-drawer" class="btn btn-ghost drawer-button">
+                      <AlignJustify />
+                    </label>
+                    <h2 class="text-xl font-bold ml-2">Chats</h2>
+                  </div>
+                </div>
+                <!-- Sidebar / drawer side -->
+                <div class="drawer-side z-50">
+                  <label for="my-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+                  <!-- Sidebar content here -->
+                  <div class="bg-white menu p-4 w-80 min-h-full text-base-content">
+                    <div class="h-14 w-full flex items-center px-5">
+                      <h2 class="text-xl font-bold">Profile</h2>
+                    </div>
+                    <div class="mt-3 px-2 relative">
+                      <div v-if="editState === false" class="border border-gray-200 rounded-xl p-4">
+                        <div class="flex flex-col gap-2">
+                          <div>
+                            <p class="font-semibold mb-1">Avatar</p>
+                            <img
+                              v-if="user?.avatar?.length > 0"
+                              :src="user.avatar"
+                              alt="avatar-image"
+                              loading="lazy"
+                              class="w-22 h-22 rounded-full object-cover"
+                            />
+                            <div
+                              v-else
+                              class="h-22 w-22 flex items-center justify-center rounded-full border border-gray-200 text-xs"
+                            >
+                              No Image
+                            </div>
+                          </div>
+                          <div>
+                            <p class="font-semibold">User Id</p>
+                            <p>{{ user.uid }}</p>
+                          </div>
+                          <div>
+                            <p class="font-semibold">Name</p>
+                            <p>{{ user.displayName }}</p>
+                          </div>
+                          <div>
+                            <p class="font-semibold">Email</p>
+                            <p>{{ user.email }}</p>
+                          </div>
+                          <div class="mt-4">
+                            <button class="btn btn-primary w-full" @click="handleSignOut">
+                              Logout
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div v-else class="border border-gray-200 rounded-xl p-4">
+                        <form @submit.prevent="handleEditSubmit">
+                          <div class="mb-2">
+                            <label for="avatar" class="font-semibold block mb-1">Avatar</label>
+                            <input
+                              type="file"
+                              class="file-input"
+                              name="avatar"
+                              @change="handleFileChange"
+                              accept="image/*"
+                            />
+                          </div>
+                          <div class="mb-4">
+                            <label for="displayName" class="font-semibold">Name</label>
+                            <input
+                              type="text"
+                              placeholder="Type your name"
+                              class="input"
+                              name="displayName"
+                              v-model="formData.displayName"
+                            />
+                          </div>
+                          <button class="btn btn-primary" type="submit">
+                            <span v-if="loading === true" class="loading loading-spinner"></span>
+                            Submit
+                          </button>
+                        </form>
+                      </div>
+                      <div class="absolute top-4 right-9">
+                        <a
+                          class="link link-hover items-start font-semibold"
+                          @click="editState = !editState"
+                          >Edit</a
+                        >
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="tooltip tooltip-bottom z-40" data-tip="New Chat">
+              <button
+                class="btn btn-ghost btn-circle hidden lg:inline-flex"
+                @click="modalRef?.showModal()"
+              >
                 <SquarePen />
               </button>
             </div>
@@ -514,6 +628,13 @@ onBeforeUnmount(() => {
               </div>
             </div>
           </div>
+
+          <button
+            class="btn btn-primary btn-circle w-[50px] h-[50px] absolute bottom-7 right-7 shadow-md lg:hidden"
+            @click="modalRef?.showModal()"
+          >
+            <MessageSquarePlus class="w-7 h-7" />
+          </button>
         </div>
 
         <div v-else>
@@ -589,24 +710,36 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div class="col-span-5 bg-slate-100">
-        <!-- <div class=" "> -->
+      <div
+        :class="[
+          'fixed md:relative md:col-span-5 lg:col-span-5 bg-slate-100 z-30 w-full h-screen transition-transform duration-300',
+          roomId ? 'translate-x-0' : 'translate-x-full md:translate-x-0', // Slide from right on mobile
+        ]"
+      >
         <div v-if="roomId !== ''" class="flex flex-col h-screen">
           <div class="navbar bg-primary shadow-sm flex-none px-4">
             <div class="flex items-center gap-3">
-              <div v-if="avatars[roomId]?.avatar?.length > 0" class="avatar">
-                <div class="w-10 rounded-full">
-                  <img
-                    :src="avatars[roomId].avatar"
-                    class="object-cover"
-                    loading="lazy"
-                    alt="avatar-image-person"
-                  />
+              <div>
+                <button
+                  class="btn btn-circle btn-link text-white inline-flex md:hidden"
+                  @click="roomId = ''"
+                >
+                  <ArrowLeft />
+                </button>
+                <div v-if="avatars[roomId]?.avatar?.length > 0" class="avatar">
+                  <div class="w-10 rounded-full">
+                    <img
+                      :src="avatars[roomId].avatar"
+                      class="object-cover"
+                      loading="lazy"
+                      alt="avatar-image-person"
+                    />
+                  </div>
                 </div>
-              </div>
-              <div v-else class="avatar avatar-placeholder">
-                <div class="bg-neutral text-neutral-content w-10 rounded-full">
-                  <span class="text-3xl">{{ recipientName.substring(0, 1) }}</span>
+                <div v-else class="avatar avatar-placeholder">
+                  <div class="bg-neutral text-neutral-content w-10 rounded-full">
+                    <span class="text-3xl">{{ recipientName.substring(0, 1) }}</span>
+                  </div>
                 </div>
               </div>
               <p class="text-lg font-semibold text-white">{{ recipientName }}</p>
@@ -658,9 +791,8 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-else class="h-screen flex items-center justify-center">
-          <p class="text-lg font-bold">Chat Section</p>
+          <p class="text-lg font-bold hidden md:block">Chat Section</p>
         </div>
-        <!-- </div> -->
       </div>
     </section>
 
