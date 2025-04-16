@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth'
 import { getDatabase, ref, push, set, update, get } from 'firebase/database'
-import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore'
+import { getFirestore, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -33,6 +33,11 @@ export type TUserDoc = {
   displayName: string | null
   email: string | null
   avatar: string
+}
+
+export const updateDisplayName = async (uid: string, displayName: string) => {
+  const userDocRef = doc(dbFirestore, 'users', uid)
+  await updateDoc(userDocRef, { displayName: displayName })
 }
 
 export const addOrChangeUserData = async (uid: string, objectsToAdd: TUserDoc) => {

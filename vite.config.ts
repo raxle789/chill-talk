@@ -13,4 +13,7 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  server: {
+    allowedHosts: ['helping-troll-guiding.ngrok-free.app'],
+  },
 })

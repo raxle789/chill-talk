@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { PopupSignIn, addOrChangeUserData, getUserField, makeUserRoom } from '@/lib/firebase.utils'
+import { CircleX } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import Cookies from 'js-cookie'
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { getUserDataFromCookies } from '@/lib/js-cookie.utils'
 import people1 from '@/assets/potrait-images/people1.jpg'
 import people2 from '@/assets/potrait-images/people2.jpg'
@@ -21,6 +22,7 @@ export type TUserData = {
   avatar: string
 }
 const router = useRouter()
+const toastState = ref(false)
 
 const handleLogInWithGoogle = async () => {
   try {
@@ -42,7 +44,11 @@ const handleLogInWithGoogle = async () => {
         })
         router.push('/chats')
       } else {
-        alert('You need to signup first!')
+        toastState.value = true
+        setTimeout(() => {
+          toastState.value = false
+        }, 3000)
+        // alert('You need to signup first!')
         // console.log(userData)
       }
     }
@@ -285,5 +291,12 @@ onMounted(() => {
       </div>
     </div>
     <!-- </div> -->
+
+    <div v-if="toastState === true" class="toast toast-top toast-center z-60">
+      <div role="alert" class="alert bg-white">
+        <CircleX class="text-red-500" />
+        <span>You need to signup first!</span>
+      </div>
+    </div>
   </main>
 </template>

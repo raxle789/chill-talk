@@ -19,15 +19,18 @@ import {
   markMessageAsRead,
   addOrChangeUserData,
   getUserField,
+  updateDisplayName,
 } from '@/lib/firebase.utils'
 import { useRouter } from 'vue-router'
 import Cookies from 'js-cookie'
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { getUserDataFromCookies } from '@/lib/js-cookie.utils'
 import { ref as dbRef, onChildAdded, off, get, onValue } from 'firebase/database'
+import type { DatabaseReference } from 'firebase/database'
 import { v4 as uuidv4 } from 'uuid'
 import dayjs from 'dayjs'
 import { useUserStore } from '@/stores/user'
+import type { TUserData } from './HomeView.vue'
 
 type TMessage = {
   senderId: string
@@ -43,10 +46,14 @@ type TChatList = {
   firstPersonName: string
   lastMessage: string
   lastSenderId: string
-  lastTimestamp: string
+  lastTimestamp: number
   roomId: string
   secondPersonId: string
   secondPersonName: string
+}
+
+type TAvatars = {
+  [roomId: string]: { avatar: string }
 }
 
 // State
@@ -58,8 +65,8 @@ const messageInputRef = ref<HTMLInputElement | null>(null)
 const roomId = ref('')
 const recipientId = ref('')
 const recipientName = ref('')
-const chatList = ref<any>([])
-const avatars = ref<any>([])
+const chatList = ref<TChatList[]>([])
+const avatars = ref<TAvatars>({})
 const messages = ref<TMessage[]>([])
 const modalRef = ref<HTMLDialogElement | null>(null)
 const loading = ref(false)
@@ -71,16 +78,12 @@ const formData = ref({
   avatar: null as File | null,
 })
 const widthDevice = ref(0)
-let firebaseRef: any = null
+let firebaseRef: DatabaseReference | null = null
 
 // Functions
 const handleEditSubmit = async () => {
   loading.value = true
   try {
-    // console.log({
-    //   displayName: formData.value.displayName,
-    //   avatar: formData.value.avatar,
-    // })
     if (formData.value.avatar) {
       const formDataCloudinary = new FormData()
       formDataCloudinary.append('file', formData.value.avatar)
@@ -101,11 +104,43 @@ const handleEditSubmit = async () => {
         avatar: data.secure_url,
       })
 
+      const cookiesData: TUserData = {
+        uid: user.uid,
+        email: user.email,
+        displayName: formData.value.displayName,
+        avatar: data.secure_url,
+      }
+
+      Cookies.set('simpleChatApp-userData', JSON.stringify(cookiesData), {
+        expires: 3,
+      })
+
       // Update local store
       user.setUser({
         ...user,
         displayName: formData.value.displayName,
         avatar: data.secure_url,
+      })
+
+      // Toggle edit mode
+      editState.value = false
+    } else {
+      await updateDisplayName(user.uid, formData.value.displayName)
+      const cookiesData: TUserData = {
+        uid: user.uid,
+        email: user.email,
+        displayName: formData.value.displayName,
+        avatar: user.avatar,
+      }
+
+      Cookies.set('simpleChatApp-userData', JSON.stringify(cookiesData), {
+        expires: 3,
+      })
+
+      // Update local store
+      user.setUser({
+        ...user,
+        displayName: formData.value.displayName,
       })
 
       // Toggle edit mode
@@ -129,7 +164,11 @@ const handleFileChange = (event: Event) => {
     }
     // Validasi ukuran file (optional, misal max 2MB)
     if (file.size > 0.3 * 1024 * 1024) {
-      alert('File size should be less than 300kb')
+      warningAlert.value = true
+      setTimeout(() => {
+        warningAlert.value = false
+      }, 3000)
+      // alert('File size should be less than 300kb')
       input.value = ''
       return
     }
@@ -153,11 +192,12 @@ const changeMenu = (value: string) => {
   }
 }
 
-const handleNewChatSubmit = async (e: any) => {
+const handleNewChatSubmit = async (e: Event) => {
+  e.preventDefault()
   loading.value = true
-  const form = e.target
-  const recipientId = form.recipientId.value
-  const message = form.message.value
+  const form = e.target as HTMLFormElement
+  const recipientId = (form.recipientId as HTMLInputElement).value
+  const message = (form.message as HTMLInputElement).value
 
   const roomId = uuidv4()
   await makeNewRoom(roomId, user.uid, user.displayName, recipientId, message)
@@ -194,11 +234,11 @@ const handleRoomClick = async (id: string) => {
     })
     getMessages()
     listenToMessages()
-    if (widthDevice.value > 767) {
-      await nextTick(() => {
-        messageInputRef.value?.focus()
-      })
-    }
+    // if (widthDevice.value > 1023) {
+    await nextTick(() => {
+      messageInputRef.value?.focus()
+    })
+    // }
   }
 }
 
@@ -209,7 +249,7 @@ const getChatList = async () => {
   const result = listSnap.val()
   delete result.displayName
 
-  let list: any = []
+  let list: TChatList[] = []
   Object.values(result as any).map((item: any, index: number) =>
     list.push({ roomId: Object.keys(result)[index], ...item }),
   )
@@ -221,7 +261,6 @@ const getChatList = async () => {
         ...roomData,
       }))
       .sort((a, b) => b.lastTimestamp - a.lastTimestamp)
-    chatList.value = result
     let avatarsObj: { [key: string]: { avatar: string } } = {}
 
     await Promise.all(
@@ -268,7 +307,7 @@ const listenToChatList = () => {
         .sort((a, b) => b.lastTimestamp - a.lastTimestamp)
       const newItems = result.filter(
         (newItem) =>
-          !chatList.value.some((existingItem: any) => existingItem.roomId === newItem.roomId),
+          !chatList.value.some((existingItem: TChatList) => existingItem.roomId === newItem.roomId),
       )
       chatList.value = result
 
@@ -315,7 +354,7 @@ const listenToChatRoom = (roomId: string) => {
 
     // Hapus entry lama jika ada yang punya roomId sama
     const filtered = JSON.parse(JSON.stringify(chatList.value)).filter(
-      (item: any) => item.roomId !== roomId,
+      (item: TChatList) => item.roomId !== roomId,
     )
 
     // Gabungkan dan urutkan berdasarkan timestamp
@@ -329,7 +368,7 @@ const listenToChatRoom = (roomId: string) => {
 const getMessages = async () => {
   firebaseRef = dbRef(dbRealtime, `chats/${roomId.value}`)
   const result = await get(firebaseRef)
-  // console.log('getMessages:', result.val())
+  // console.log('firebaseRef:', firebaseRef)
   const messagesQuery = result.val()
   const keys = Object.keys(messagesQuery)
   const lastKey = keys[keys.length - 1]
@@ -467,9 +506,27 @@ onBeforeUnmount(() => {
       >
         <div v-if="menu === 'chats'">
           <div class="h-20 w-full flex justify-between items-center px-3">
-            <div>
-              <h2 class="text-xl font-bold ml-2 hidden lg:block">Chats</h2>
-              <div class="drawer lg:hidden">
+            <div class="flex items-center justify-between w-full">
+              <h2 class="text-xl font-bold ml-2 hidden md:block">Chats</h2>
+              <button
+                class="btn btn-ghost btn-circle mr-2 hidden md:inline-flex lg:hidden"
+                @click="changeMenu('profile')"
+              >
+                <img
+                  v-if="user.avatar.length > 0"
+                  :src="user.avatar"
+                  class="w-full h-full rounded-full object-cover"
+                  alt="avatar-image-profile"
+                />
+                <div v-else class="avatar avatar-placeholder w-full h-full rounded-full">
+                  <div
+                    class="bg-neutral text-neutral-content rounded-full flex items-center justify-center"
+                  >
+                    <span class="text-2xl">{{ user.displayName.substring(0, 1) }}</span>
+                  </div>
+                </div>
+              </button>
+              <div class="drawer md:hidden">
                 <input id="my-drawer" type="checkbox" class="drawer-toggle" />
                 <!-- Drawer content -->
                 <div class="drawer-content">
@@ -639,6 +696,12 @@ onBeforeUnmount(() => {
 
         <div v-else>
           <div class="h-20 w-full flex items-center px-5">
+            <button
+              class="btn btn-circle btn-link hidden md:inline-flex lg:hidden mr-1"
+              @click="changeMenu('chats')"
+            >
+              <ArrowLeft />
+            </button>
             <h2 class="text-xl font-bold">Profile</h2>
           </div>
           <div class="px-5 relative">
@@ -662,15 +725,18 @@ onBeforeUnmount(() => {
                 </div>
                 <div>
                   <p class="font-semibold">User Id</p>
-                  <p>{{ user.uid }}</p>
+                  <p class="break-all">{{ user.uid }}</p>
                 </div>
                 <div>
                   <p class="font-semibold">Name</p>
-                  <p>{{ user.displayName }}</p>
+                  <p class="break-all">{{ user.displayName }}</p>
                 </div>
                 <div>
                   <p class="font-semibold">Email</p>
-                  <p>{{ user.email }}</p>
+                  <p class="break-all">{{ user.email }}</p>
+                </div>
+                <div class="mt-4 lg:hidden">
+                  <button class="btn btn-primary w-full" @click="handleSignOut">Logout</button>
                 </div>
               </div>
             </div>
@@ -712,8 +778,8 @@ onBeforeUnmount(() => {
 
       <div
         :class="[
-          'fixed md:relative md:col-span-5 lg:col-span-5 bg-slate-100 z-30 w-full h-screen transition-transform duration-300',
-          roomId ? 'translate-x-0' : 'translate-x-full md:translate-x-0', // Slide from right on mobile
+          'md:relative md:col-span-5 lg:col-span-5 bg-slate-100 z-30 w-full h-screen transition-transform duration-300',
+          roomId ? 'translate-x-0 relative' : 'translate-x-full md:translate-x-0 fixed',
         ]"
       >
         <div v-if="roomId !== ''" class="flex flex-col h-screen">
@@ -802,7 +868,7 @@ onBeforeUnmount(() => {
           <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
         </form>
         <h3 class="text-lg font-bold">New Chat</h3>
-        <form @submit.prevent="handleNewChatSubmit">
+        <form @submit="handleNewChatSubmit">
           <fieldset class="fieldset mt-2">
             <legend class="fieldset-legend">Recipient Id</legend>
             <input
@@ -828,18 +894,18 @@ onBeforeUnmount(() => {
       </form>
     </dialog>
 
-    <div v-if="toastState === true" class="toast toast-top toast-center">
-      <div role="alert" class="alert alert-error alert-soft">
-        <CircleX />
+    <div v-if="toastState === true" class="toast toast-top toast-center z-60">
+      <div role="alert" class="alert bg-white">
+        <CircleX class="text-red-500" />
         <span>No user data found!</span>
       </div>
     </div>
 
-    <div v-if="warningAlert === true" class="toast toast-top toast-center">
-      <div role="alert" class="alert alert-warning">
+    <div v-if="warningAlert === true" class="toast toast-top toast-center z-60">
+      <div role="alert" class="alert bg-white">
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          class="h-6 w-6 shrink-0 stroke-current"
+          class="h-6 w-6 shrink-0 stroke-current text-yellow-400"
           fill="none"
           viewBox="0 0 24 24"
         >
@@ -850,7 +916,7 @@ onBeforeUnmount(() => {
             d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
           />
         </svg>
-        <span>Warning: File size should be less than 300kb!</span>
+        <span>File size should be less than 300kb!</span>
       </div>
     </div>
   </main>
