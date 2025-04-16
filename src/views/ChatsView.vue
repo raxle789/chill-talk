@@ -841,7 +841,7 @@ onBeforeUnmount(() => {
               </div>
             </div>
           </div>
-          <div class="flex-none p-3">
+          <div class="flex-none p-3 flex items-center gap-2">
             <label class="input w-full">
               <input
                 ref="messageInputRef"
@@ -851,8 +851,15 @@ onBeforeUnmount(() => {
                 @keydown.enter="handleSendMessage"
                 placeholder="Type a message"
               />
-              <SendHorizontal />
+              <SendHorizontal v-if="widthDevice > 1023" />
             </label>
+            <button
+              v-if="widthDevice < 1024"
+              class="btn btn-primary btn-circle"
+              @click="handleSendMessage"
+            >
+              <SendHorizontal />
+            </button>
           </div>
         </div>
 
